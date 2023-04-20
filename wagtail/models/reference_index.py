@@ -165,10 +165,6 @@ class ReferenceIndex(models.Model):
     # by ParentalKey (object references on those are recorded under the parent).
     indexed_models = set()
 
-    # If true, the initially-registered set of signal handlers has now been connected.
-    # Any calls to ReferenceIndex.register_model must connect the signal individually.
-    initial_signals_connected = False
-
     class Meta:
         unique_together = [
             (
@@ -254,6 +250,9 @@ class ReferenceIndex(models.Model):
         """
         Registers the model for indexing.
         """
+        if model in cls.indexed_models:
+            return
+
         if cls.model_is_indexable(model):
             cls.indexed_models.add(model)
             cls._register_as_tracked_model(model)
@@ -267,15 +266,12 @@ class ReferenceIndex(models.Model):
         if model in cls.tracked_models:
             return
 
+        from wagtail.signal_handlers import (
+            connect_reference_index_signal_handlers_for_model,
+        )
+
         cls.tracked_models.add(model)
-
-        if cls.initial_signals_connected:
-            # must register signals for this model individually
-            from wagtail.signal_handlers import (
-                connect_reference_index_signal_handlers_for_model,
-            )
-
-            connect_reference_index_signal_handlers_for_model(model)
+        connect_reference_index_signal_handlers_for_model(model)
 
         for child_relation in get_all_child_relations(model):
             if cls.model_is_indexable(

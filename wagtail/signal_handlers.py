@@ -129,14 +129,6 @@ def register_signal_handlers():
     post_save.connect(reset_locales_display_names_cache, sender=Locale)
     post_delete.connect(reset_locales_display_names_cache, sender=Locale)
 
-    # Reference index signal handlers
-    connect_reference_index_signal_handlers()
-
-    # Set the flag to show that the initially-registered set of signal handlers has
-    # been connected. Beyond this point, any calls to ReferenceIndex.register_model
-    # must connect the signal individually.
-    ReferenceIndex.initial_signals_connected = True
-
     # Disconnect reference index signals while migrations are running
     # (we don't want to log references in migrations as the ReferenceIndex model might not exist)
     pre_migrate.connect(disconnect_reference_index_signal_handlers)
