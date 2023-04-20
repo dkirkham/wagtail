@@ -155,11 +155,19 @@ class ReferenceIndex(models.Model):
 
     wagtail_reference_index_ignore = True
 
-    # Store the models that are being tracked and indexed.
-    # If a model is present as a key, the model is tracked by receiving the corresponding
-    # model save and delete signals. If the value is True, then it is indexed.
-    # (False indicates the model has a ParentalKey relation with an indexed model.)
-    _indexed_models = {}
+    # The set of models that should have signals attached to watch for outbound references.
+    # This includes those registered with `register_model`, as well as their child models
+    # linked by a ParentalKey.
+    tracked_models = set()
+
+    # Ths set of models that can appear as the 'from' object in the reference index.
+    # This only includes those registered with `register_model`, and NOT child models linked
+    # by ParentalKey (object references on those are recorded under the parent).
+    indexed_models = set()
+
+    # If true, the initially-registered set of signal handlers has now been connected.
+    # Any calls to ReferenceIndex.register_model must connect the signal individually.
+    initial_signals_connected = False
 
     class Meta:
         unique_together = [
@@ -245,29 +253,40 @@ class ReferenceIndex(models.Model):
     def register_model(cls, model):
         """
         Registers the model for indexing.
-
-        If there are child relationships (via a ParentalKey), the
-        saves and deletes on those models also need to be tracked
         """
         if cls.model_is_indexable(model):
-            cls._indexed_models[model] = True
+            cls.indexed_models.add(model)
+            cls._register_as_tracked_model(model)
 
-            for child_relation in get_all_child_relations(model):
-                if cls.model_is_indexable(
-                    child_relation.related_model,
-                    allow_child_models=True,
-                ):
-                    cls._indexed_models[
-                        child_relation.related_model
-                    ] = cls._indexed_models.get(child_relation.related_model, False)
+    @classmethod
+    def _register_as_tracked_model(cls, model):
+        """
+        Add the model and all of its ParentalKey-linked children to the set of
+        models to be tracked by signal handlers.
+        """
+        if model in cls.tracked_models:
+            return
+
+        cls.tracked_models.add(model)
+
+        if cls.initial_signals_connected:
+            # must register signals for this model individually
+            from wagtail.signal_handlers import (
+                connect_reference_index_signal_handlers_for_model,
+            )
+
+            connect_reference_index_signal_handlers_for_model(model)
+
+        for child_relation in get_all_child_relations(model):
+            if cls.model_is_indexable(
+                child_relation.related_model,
+                allow_child_models=True,
+            ):
+                cls._register_as_tracked_model(child_relation.related_model)
 
     @classmethod
     def is_indexed(cls, model):
-        return cls._indexed_models.get(model, False)
-
-    @classmethod
-    def get_tracked_models(cls):
-        return cls._indexed_models.keys()
+        return model in cls.indexed_models
 
     @classmethod
     def _extract_references_from_object(cls, object):
