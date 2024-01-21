@@ -28,6 +28,7 @@ from wagtail.test.testapp.models import (
     ModeratedModel,
     RevisableChildModel,
     RevisableModel,
+    SnippetChooserModel,
     VariousOnDeleteModel,
 )
 from wagtail.test.testapp.views import (
@@ -378,12 +379,20 @@ class VariousOnDeleteModelViewSet(SnippetViewSet):
     inspect_view_enabled = True
 
 
+class SnippetChooserModelViewSet(SnippetViewSet):
+    model = SnippetChooserModel
+
+    list_display = ["advert", "full_featured.text"]
+    exclude_form_fields = []
+
+
 register_snippet(FullFeaturedSnippet, viewset=FullFeaturedSnippetViewSet)
 register_snippet(DraftStateModel, viewset=DraftStateModelViewSet)
 # Works with both classes and instances
 register_snippet(ModeratedModelViewSet())
 register_snippet(RevisableViewSetGroup)
 register_snippet(VariousOnDeleteModelViewSet)
+register_snippet(SnippetChooserModelViewSet)
 
 
 @hooks.register("register_admin_viewset")

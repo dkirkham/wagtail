@@ -734,6 +734,21 @@ class TestListViewWithCustomColumns(BaseSnippetViewSetTests):
         )
 
 
+class TestRelatedFieldColumns(BaseSnippetViewSetTests):
+    model = SnippetChooserModel
+
+    def test_snippetchoosermodel_related_fields(self):
+        advert = Advert(url="https://example.com/free_examples", text="Free Examples")
+        advert.save()
+        ffs = FullFeaturedSnippet(text="test snippet with custom icon")
+        ffs.save()
+        scm = SnippetChooserModel(advert=advert, full_featured=ffs)
+        scm.save()
+
+        response = self.client.get(self.get_url("list"))
+        self.assertContains(response, "<th>Text</th>", html=True)
+
+
 class TestListExport(BaseSnippetViewSetTests):
     model = FullFeaturedSnippet
 
